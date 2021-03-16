@@ -25,8 +25,8 @@ if __name__ == '__main__':
     with open(f'results/{exp_name}/results.csv', "a") as f:
         f.write(f',{",".join(csv_columns)}\n')
 
-    for n in get_log_scale(max_power_range=2):
-        for seed in range(1):
+    for n in get_log_scale(max_power_range=9):
+        for seed in range(5):
 
             # ============ Train ============
             # pick q-a-c triplets at random
