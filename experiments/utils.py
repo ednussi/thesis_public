@@ -13,6 +13,7 @@ import string
 import tempfile
 import subprocess
 import re
+import matplotlib.pyplot as plt
 
 def get_log_scale(max_power_range=9):
     # max_power_range=9 results in
@@ -181,6 +182,58 @@ def eval_model(model, tokenizer):
     # Get F1/EM scores using official code
     res_summary = calc_scores(answers_df)
     return res_summary, answers_df
+
+def plot_random_sample_res(res_csv_paths):
+
+    plt.figure(figsize=(20,30))
+    fig, (ax_f1, ax_em) = plt.subplots(2)
+    ax_em.set_xscale("log")
+    ax_f1.set_xscale("log")
+    fig.suptitle('Experiment Results')
+
+    for df_i,df_path in enumerate(res_csv_paths):
+        df = pd.read_csv(df_path)
+        rseed = df['seed'].unique()[0]
+        x = []
+        y_f1 = []
+        y_em = []
+        yerr_f1_min = []
+        yerr_em_min = []
+        yerr_f1_max = []
+        yerr_em_max = []
+
+        for context_limit in df['n'].unique():
+            df_aug_cont_lim = df[df['n'] == context_limit]
+            x.append(context_limit)
+            y_f1.append(df_aug_cont_lim['F1'].mean())
+            y_em.append(df_aug_cont_lim['EM'].mean())
+
+            yerr_f1_min.append(df_aug_cont_lim['F1'].min())
+            yerr_em_min.append(df_aug_cont_lim['EM'].min())
+            yerr_f1_max.append(df_aug_cont_lim['F1'].max())
+            yerr_em_max.append(df_aug_cont_lim['EM'].max())
+
+        ax_f1.plot(x, y_f1, label=f'rseed_{rseed}')
+        ax_f1.fill_between(x, yerr_f1_min, yerr_f1_max, alpha=0.5)
+        ax_em.plot(x, y_em, label=f'rseed_{rseed}')
+        ax_em.fill_between(x, yerr_em_min, yerr_em_max, alpha=0.5)
+
+
+    xrange = [2 ** x for x in range(1, 9)]
+    xrange_text = [str(x) for x in xrange]
+
+    ax_f1.set_title('F1 vs. #QA pairs')
+    ax_f1.legend(prop={'size':6}, loc='upper left')
+    ax_f1.set_xticks(xrange)
+    ax_f1.set_xticklabels(xrange_text)
+    ax_em.set_title('EM vs. #QA pairs')
+    ax_em.legend(prop={'size':6}, loc='upper left')
+    ax_em.set_xticks(xrange)
+    ax_em.set_xticklabels(xrange_text)
+    fig.tight_layout()
+    fig.savefig('plot.png')
+    fig.show()
+    input('\nDone. Enter Anything to End')
 
 if __name__ == '__main__':
     pass
