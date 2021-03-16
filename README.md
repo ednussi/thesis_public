@@ -7,7 +7,7 @@ git clone git@github.com:ednussi/thesis_public.git
 cd thesis_public
 python run_baseline.py
 ```
-Script assum,es you have a gpu
+Script assumes you have a gpu
 
 On a Titan X expirement runs for ~6 hours
 
