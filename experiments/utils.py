@@ -183,7 +183,7 @@ def eval_model(model, tokenizer):
     res_summary = calc_scores(answers_df)
     return res_summary, answers_df
 
-def plot_random_sample_res(res_csv_paths):
+def plot_random_sample_res(res_csv_paths, exp_name):
 
     plt.figure(figsize=(20,30))
     fig, (ax_f1, ax_em) = plt.subplots(2)
@@ -213,9 +213,9 @@ def plot_random_sample_res(res_csv_paths):
             yerr_f1_max.append(df_aug_cont_lim['F1'].max())
             yerr_em_max.append(df_aug_cont_lim['EM'].max())
 
-        ax_f1.plot(x, y_f1, label=f'rseed_{rseed}')
+        ax_f1.plot(x, y_f1, label=f'exp_{rseed}')
         ax_f1.fill_between(x, yerr_f1_min, yerr_f1_max, alpha=0.5)
-        ax_em.plot(x, y_em, label=f'rseed_{rseed}')
+        ax_em.plot(x, y_em, label=f'exp_{rseed}')
         ax_em.fill_between(x, yerr_em_min, yerr_em_max, alpha=0.5)
 
 
@@ -231,9 +231,9 @@ def plot_random_sample_res(res_csv_paths):
     ax_em.set_xticks(xrange)
     ax_em.set_xticklabels(xrange_text)
     fig.tight_layout()
-    fig.savefig('plot.png')
-    fig.show()
-    input('\nDone. Enter Anything to End')
+    fig_save_path = f'results/{exp_name}/plot.png'
+    fig.savefig(fig_save_path)
+    print(f'Save plot figure in {fig_save_path}')
 
 if __name__ == '__main__':
     pass

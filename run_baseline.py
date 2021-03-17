@@ -50,4 +50,5 @@ if __name__ == '__main__':
             csv_entery_num += 1
 
     # ============ Plot Results ============
-    plot_random_sample_res([results_path])
+    plot_random_sample_res([results_path], exp_name)
+    print('Expirement Run Succesfully')
