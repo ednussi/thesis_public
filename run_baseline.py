@@ -6,7 +6,7 @@ def create_folder(path):
     if not os.path.exists(path):
         os.mkdir(path)
 
-if __name__ == '__main__':
+def run_base():
     squad_df = load_squad_df(squad_json_path)
 
     base_results_path = 'results/'
@@ -33,7 +33,7 @@ if __name__ == '__main__':
             # pick q-a-c triplets at random
             data_samples_df = sample_random_qa_pairs(squad_df, n, seed, exp_name)
             # prepare data for training
-            train_ds = train_df_to_training_dataset(data_samples_df, tokenizer)
+            train_ds = train_df_to_training_dataset(data_samples_df, tokenizer, shuffle_seed=0)
             model = train_model(model, tokenizer, train_ds)
 
             # ============ Eval ============
@@ -52,3 +52,6 @@ if __name__ == '__main__':
     # ============ Plot Results ============
     plot_random_sample_res([results_path], exp_name)
     print('Expirement Run Succesfully')
+
+if __name__ == '__main__':
+    run_base()
