@@ -12,6 +12,8 @@ def parse_args():
                         help='The exponent used on a base 2 to determine max number of #samples takes')
     parser.add_argument('--exp_repeat', type=int, nargs='?', required=False, default=5,
                         help='Repeat experiment this number of times, use a different random seed for each exp')
+    parser.add_argument('--base_model', type=str, nargs='?', required=False, default="roberta-base",
+                        help='Base tokenizer + architecture to use from huggingface models')
     parser.add_argument('--name', type=str, nargs=1, required=True, help='Experiment name')
 
     args = parser.parse_args()
@@ -26,8 +28,8 @@ def run_base():
     squad_df = load_squad_df(squad_json_path)
 
     base_path = args.bpath
-    exp_name = 'baseline'
-    base_model = "roberta-base"
+    exp_name = args.name
+    base_model = args.base_model
     csv_entery_num = 0
 
     model, tokenizer = get_model_tokenizer(base_model)
@@ -53,7 +55,7 @@ def run_base():
             model = train_model(model, tokenizer, train_ds)
 
             # ============ Eval ============
-            res_summary, answers_df = eval_model(model, tokenizer)
+            res_summary, answers_df = eval_model(model, tokenizer, base_path)
 
             # ============ Save ============
             # save answers df

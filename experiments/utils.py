@@ -155,10 +155,10 @@ def create_answers(model, tokenizer):
                                              ignore_index=True)
     return scores_df
 
-def get_em_f1_squad1(pred_path):
+def get_em_f1_squad1(pred_path, bpath):
     # pred_path = 'data/squad/sub_ex.json' # default test file
-    ground_truth_path = 'data/squad/dev-v1.1.json'
-    eval_script_path = 'data/squad/eval1.py' #v1
+    ground_truth_path = f'{bpath}/data/squad/dev-v1.1.json'
+    eval_script_path = f'{bpath}/data/squad/eval1.py' #v1
     cmd = f'python {eval_script_path} {ground_truth_path} {pred_path}'
     proc = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, shell=True)
     (out, err) = proc.communicate()
@@ -166,21 +166,21 @@ def get_em_f1_squad1(pred_path):
     EM, F1 = [float(out[x.start():x.end()]) for x in re.finditer('\d+\.\d+', out)]
     return EM, F1
 
-def calc_scores(answers_df):
+def calc_scores(answers_df, bpath):
 
     # Get a temp json file  of answers from df
     answers_json = pd.Series(answers_df.pred.values, index=answers_df.id).to_dict()
     tfile = tempfile.NamedTemporaryFile(mode="w+", delete=False)
     json.dump(answers_json, tfile)
     tfile.flush()
-    EM, F1 = get_em_f1_squad1(tfile.name)
+    EM, F1 = get_em_f1_squad1(tfile.name, bpath)
     res_summary = f"EM:{EM}, F1:{F1}"
     return res_summary
 
-def eval_model(model, tokenizer):
+def eval_model(model, tokenizer, bpath):
     answers_df = create_answers(model, tokenizer)
     # Get F1/EM scores using official code
-    res_summary = calc_scores(answers_df)
+    res_summary = calc_scores(answers_df, bpath)
     return res_summary, answers_df
 
 def plot_random_sample_res(res_csv_paths, exp_name, bpath):
