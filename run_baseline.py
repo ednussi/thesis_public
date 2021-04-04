@@ -49,7 +49,7 @@ def run_base():
 
             # ============ Train ============
             # pick q-a-c triplets at random
-            data_samples_df = sample_random_qa_pairs(squad_df, n, seed, exp_name)
+            data_samples_df = sample_random_qa_pairs(squad_df, n, seed, exp_name, base_path)
             # prepare data for training
             train_ds = train_df_to_training_dataset(data_samples_df, tokenizer, shuffle_seed=0)
             model = train_model(model, tokenizer, train_ds)

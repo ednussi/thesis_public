@@ -76,9 +76,9 @@ def load_squad_df(squad_json_path):
         squad_df = squad1_to_df(squad_json_path)
     return squad_df
 
-def sample_random_qa_pairs(df, n, random_state, exp_name):
+def sample_random_qa_pairs(df, n, random_state, exp_name, bpath):
     df_sample = df.sample(n=n, random_state=random_state)
-    sample_df_name = f'results/{exp_name}/data/data-{n}_seed-{random_state}.csv'
+    sample_df_name = f'{bpath}/results/{exp_name}/data/data-{n}_seed-{random_state}.csv'
     df_sample.to_csv(sample_df_name, index=False)
     print(f'Saved data random sample {sample_df_name}')
     return df_sample
