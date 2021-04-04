@@ -6,13 +6,13 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Parsing Args..')
-    parser.add_argument('--bpath', type=str, nargs='1', required=False,
+    parser.add_argument('--bpath', type=str, nargs='?', required=False,
                         help='base path', default='/cs/labs/gabis/ednussi/')
-    parser.add_argument('--max_samples_exp', type=int, nargs='1', required=False , default=9,
+    parser.add_argument('--max_samples_exp', type=int, nargs='?', required=False , default=9,
                         help='The exponent used on a base 2 to determine max number of #samples takes')
-    parser.add_argument('--exp_repeat', type=int, nargs='1', required=False, default=5,
+    parser.add_argument('--exp_repeat', type=int, nargs='?', required=False, default=5,
                         help='Repeat experiment this number of times, use a different random seed for each exp')
-    parser.add_argument('--name', type=str, nargs='1', required=True, help='Experiment name')
+    parser.add_argument('--name', type=str, nargs=1, required=True, help='Experiment name')
 
     args = parser.parse_args()
     return args
