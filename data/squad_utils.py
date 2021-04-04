@@ -16,6 +16,7 @@ def download_squad():
 
     squad_path = Path("data/squad")
     if not squad_path.exists():
+        print('============= Downloading Squad Data =============')
         os.makedirs(squad_path)
 
         # official site https://rajpurkar.github.io/SQuAD-explorer/
@@ -33,6 +34,7 @@ def download_squad():
 
             with open(squad_path/fname, 'w') as outfile:
                 json.dump(data, outfile)
+        print('============= Done Downloading Squad Data =============')
 
 def squad1_to_df(squad_json_path):
 
@@ -126,7 +128,10 @@ class SquadDataset(torch.utils.data.Dataset):
         return len(self.encodings.input_ids)
 
 # based on https://huggingface.co/transformers/custom_datasets.html#question-answering-with-squad-2-0
-def train_df_to_training_dataset(train_df, tokenizer):
+def train_df_to_training_dataset(train_df, tokenizer, shuffle_seed=None):
+    if shuffle_seed:
+        train_df = train_df.sample(frac=1, random_state=shuffle_seed)
+
     # turn to lists
     train_answers = train_df['answer'].to_list()
     train_questions = train_df['question'].to_list()
