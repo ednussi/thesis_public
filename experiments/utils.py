@@ -183,7 +183,7 @@ def eval_model(model, tokenizer):
     res_summary = calc_scores(answers_df)
     return res_summary, answers_df
 
-def plot_random_sample_res(res_csv_paths, exp_name):
+def plot_random_sample_res(res_csv_paths, exp_name, bpath):
 
     plt.figure(figsize=(20,30))
     fig, (ax_f1, ax_em) = plt.subplots(2)
@@ -231,9 +231,9 @@ def plot_random_sample_res(res_csv_paths, exp_name):
     ax_em.set_xticks(xrange)
     ax_em.set_xticklabels(xrange_text)
     fig.tight_layout()
-    fig_save_path = f'results/{exp_name}/plot.png'
+    fig_save_path = f'{bpath}/results/{exp_name}/plot.png'
     fig.savefig(fig_save_path)
-    print(f'Save plot figure in {fig_save_path}')
+    print(f'Saved plot figure in {fig_save_path}')
 
 if __name__ == '__main__':
     pass
