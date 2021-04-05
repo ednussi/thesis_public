@@ -14,7 +14,7 @@ def parse_args():
                         help='Repeat experiment this number of times, use a different random seed for each exp')
     parser.add_argument('--base_model', type=str, nargs='?', required=False, default="roberta-base",
                         help='Base tokenizer + architecture to use from huggingface models')
-    parser.add_argument('--name', type=str, nargs=1, required=True, help='Experiment name')
+    parser.add_argument('--name', type=str, required=True, help='Experiment name')
 
     args = parser.parse_args()
     return args

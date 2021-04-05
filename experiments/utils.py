@@ -14,6 +14,7 @@ import tempfile
 import subprocess
 import re
 import matplotlib.pyplot as plt
+from data.squad.eval1 import evaluate
 
 def get_log_scale(max_power_range=9):
     # max_power_range=9 results in
@@ -155,25 +156,47 @@ def create_answers(model, tokenizer):
                                              ignore_index=True)
     return scores_df
 
-def get_em_f1_squad1(pred_path, bpath):
-    # pred_path = 'data/squad/sub_ex.json' # default test file
+# def get_em_f1_squad1(pred_path, bpath):
+#     # pred_path = 'data/squad/sub_ex.json' # default test file
+#     ground_truth_path = f'{bpath}/data/squad/dev-v1.1.json'
+#     eval_script_path = f'{bpath}/data/squad/eval1.py' #v1
+#     cmd = f'python {eval_script_path} {ground_truth_path} {pred_path}'
+#     proc = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, shell=True)
+#     (out, err) = proc.communicate()
+#     out = out.decode("utf-8")
+#     EM, F1 = [float(out[x.start():x.end()]) for x in re.finditer('\d+\.\d+', out)]
+#     return EM, F1
+
+def run_eval1(pred_path, bpath):
+    # Matching the Main function in eval1 .py
+    #  python data/squad/eval1.py data/squad/squad1.1/dev-v1.1.json results.txt
+
+    expected_version = '1.1'
     ground_truth_path = f'{bpath}/data/squad/dev-v1.1.json'
     eval_script_path = f'{bpath}/data/squad/eval1.py' #v1
-    cmd = f'python {eval_script_path} {ground_truth_path} {pred_path}'
-    proc = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, shell=True)
-    (out, err) = proc.communicate()
-    out = out.decode("utf-8")
-    EM, F1 = [float(out[x.start():x.end()]) for x in re.finditer('\d+\.\d+', out)]
-    return EM, F1
+
+    with open(ground_truth_path) as dataset_file:
+        dataset_json = json.load(dataset_file)
+        if (dataset_json['version'] != expected_version):
+            print('Evaluation expects v-' + expected_version +
+                  ', but got dataset with v-' + dataset_json['version'],
+                  file=sys.stderr)
+        dataset = dataset_json['data']
+    with open(pred_path) as prediction_file:
+        predictions = json.load(prediction_file)
+
+    em_f1_dict = evaluate(dataset, predictions)
+    em = em_f1_dict['exact_match']
+    f1 = em_f1_dict['f1']
+    return em, f1
 
 def calc_scores(answers_df, bpath):
-
     # Get a temp json file  of answers from df
     answers_json = pd.Series(answers_df.pred.values, index=answers_df.id).to_dict()
     tfile = tempfile.NamedTemporaryFile(mode="w+", delete=False)
     json.dump(answers_json, tfile)
     tfile.flush()
-    EM, F1 = get_em_f1_squad1(tfile.name, bpath)
+    EM, F1 = run_eval1(tfile.name, bpath)
     res_summary = f"EM:{EM}, F1:{F1}"
     return res_summary
 
