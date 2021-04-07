@@ -12,9 +12,19 @@ Examples for results can be seen in the `base_res.csv` or the `base_plot.png`
 
 To run:
 ```angular2html
+#clone repo
 git clone git@github.com:ednussi/thesis_public.git
-cd thesis_public
-python run_baseline.py
+
+# create and activate virtual env
+python3 -m venv <venv_name_here>
+source <venv_name_here>/bin/activate
+
+# install requirements
+cd thesis_public 
+pip install -r requirements.txt 
+
+# Run baseline expirement
+python run_baseline.py --max_samples_exp 9 --exp_repeat 5 --name baseline --bpath <base_path_here>
 ```
 
 Notes:
