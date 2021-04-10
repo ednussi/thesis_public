@@ -76,13 +76,6 @@ def load_squad_df(squad_json_path):
         squad_df = squad1_to_df(squad_json_path)
     return squad_df
 
-def sample_random_qa_pairs(df, n, random_state, exp_name, bpath):
-    df_sample = df.sample(n=n, random_state=random_state)
-    sample_df_name = f'{bpath}/results/{exp_name}/data/data-{n}_seed-{random_state}.csv'
-    df_sample.to_csv(sample_df_name, index=False)
-    print(f'Saved data random sample {sample_df_name}')
-    return df_sample
-
 
 def add_end_idx(answers, contexts):
     for answer, context in zip(answers, contexts):
@@ -128,7 +121,7 @@ class SquadDataset(torch.utils.data.Dataset):
         return len(self.encodings.input_ids)
 
 # based on https://huggingface.co/transformers/custom_datasets.html#question-answering-with-squad-2-0
-def train_df_to_training_dataset(train_df, tokenizer, shuffle_seed=None):
+def train_df_to_training_dataset(train_df, tokenizer, shuffle_seed=None, augs=[], augs_count=0):
     if shuffle_seed:
         train_df = train_df.sample(frac=1, random_state=shuffle_seed)
 

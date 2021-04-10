@@ -15,6 +15,12 @@ import subprocess
 import re
 import matplotlib.pyplot as plt
 from data.squad.eval1 import evaluate
+import nlpaug.augmenter.word as naw
+import os
+import requests
+import gzip
+import shutil
+
 
 def get_log_scale(max_power_range=9):
     # max_power_range=9 results in
@@ -28,9 +34,108 @@ def get_model_tokenizer(base_model):
     model = AutoModelForQuestionAnswering.from_pretrained(base_model)
     return model, tokenizer
 
+# =================== Data Sampling ===================
+
+def sample_random_qa_pairs(df, n, random_state, exp_name, bpath, augs, augs_count, augs_names_str):
+    df_sample = df.sample(n=n, random_state=random_state)
+
+    # Add augmentations if needed
+    df_sample = add_augs_to_df(df_sample, augs=augs, augs_count=augs_count)
+
+    # Save data
+    sample_df_name = f'{bpath}/results/{exp_name}/data/samples-{n}_seed-{random_state}{augs_names_str}.csv'
+    df_sample.to_csv(sample_df_name, index=False)
+    print(f'Saved data random sample {sample_df_name}')
+
+    return df_sample
+
+# =================== Adding Augs Functions ===================
+
+def get_n_new_aug(aug, text, new_augs_num):
+    news_augs_set = {aug.augment(text) for i in range(new_augs_num)}
+    while len(news_augs_set) < new_augs_num:
+        news_augs_set.update({aug.augment(text)})
+    return news_augs_set
+
+def augs_from_df_row(df_row, aug, new_augs_num):
+    q = df_row['question']
+    a = df_row['answer']
+    qa_id = df_row['id']
+    title = df_row['title']
+    context = df_row['context']
+
+    news_q_augs_set = get_n_new_aug(aug, q, new_augs_num)
+    qa_pair = {'title':title,'context':context,'answer': a, 'question': q, 'id': qa_id}
+    new_aug_qa_list = [qa_pair]
+    for i, new_aug_q in enumerate(news_q_augs_set):
+        new_aug_qa_list.append({'title':title,'context':context,'answer': a, 'question': new_aug_q, 'id': qa_id + f'_{i + 1}'})
+    return new_aug_qa_list
+
+def aug_from_df(df, aug, new_augs_num):
+    news_augs_qa_list = []
+    for index, row in df.iterrows():
+        news_augs_qa_list.extend(augs_from_df_row(row, aug, new_augs_num))
+    return news_augs_qa_list
+
+def download(url, fname):
+    resp = requests.get(url, stream=True)
+    total = int(resp.headers.get('content-length', 0))
+    with open(fname, 'wb') as file, tqdm(
+            desc=fname,
+            total=total,
+            unit='iB',
+            unit_scale=True,
+            unit_divisor=1024,
+    ) as bar:
+        for data in resp.iter_content(chunk_size=1024):
+            size = file.write(data)
+            bar.update(size)
+
+
+def get_augs_from_names(augs_names):
+    googlenews_bin = 'data/GoogleNews-vectors-negative300.bin'
+    if not os.path.exists(googlenews_bin):
+        print('Downloading GoogleNews-vectors-negative300.bin.gz')
+        googlenews_bin_gz_url = "https://s3.amazonaws.com/dl4j-distribution/GoogleNews-vectors-negative300.bin.gz"
+
+        download(googlenews_bin_gz_url, f'{googlenews_bin}.gz')
+        print('Unzipping gz file')
+        # un-gz file and save as bin
+        with gzip.open(f'{googlenews_bin}.gz', 'rb') as f_in:
+            with open(googlenews_bin, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        print('Done')
+
+    print('Loading Augs')
+    switcher = {
+        'delete-random': naw.RandomWordAug(),
+        'insert-word-embed':naw.WordEmbsAug(model_type='word2vec',
+                                model_path=googlenews_bin,
+                                action="insert"),
+        'sub-word-embed': naw.WordEmbsAug(model_type='word2vec',
+                                model_path=googlenews_bin,
+                                action="substitute"),
+        'insert-bert-embed': naw.ContextualWordEmbsAug(model_path='bert-base-uncased', action="insert"),
+        'sub-bert-embed': naw.ContextualWordEmbsAug(model_path='bert-base-uncased', action="substitute")
+    }
+
+    return [switcher.get(aug_name, None) for aug_name in augs_names]
+
+def add_augs_to_df(df, augs, augs_count):
+    # augs is empty or just augs_count is 0
+    if not augs:
+        return df
+
+    news_augs_qa_list = []
+    for aug in augs:
+        news_augs_qa_list.extend(aug_from_df(df, aug, new_augs_num=augs_count))
+    augs_df = pd.DataFrame.from_dict(news_augs_qa_list)
+    augs_df = augs_df.drop_duplicates(subset=['id'])
+    return augs_df
+
 # =================== Train Functions ===================
 
-def train_model(model, tokenizer, train_ds):
+def train_model(model, train_ds, train_log_path):
 
     print(f'Cuda Visible: {torch.cuda.is_available()}')
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -55,25 +160,33 @@ def train_model(model, tokenizer, train_ds):
     # A step is one update meaning one batch
     epochs_to_reach_200 = math.ceil(200 * 1.0 / len(batches))
     epochs = max(10, epochs_to_reach_200)
+    csv_entery_num =0
+    csv_columns = ['epoch', 'batch', 'loss']
+    with open(train_log_path, "a") as f:
+        f.write(f',{",".join(csv_columns)}\n')
 
-    # Train loop
-    for _ in tqdm(range(epochs), desc='Train Epochs'):
-        for batch in batches:
-            optim.zero_grad()
-            input_ids = batch['input_ids'].to(device)
-            attention_mask = batch['attention_mask'].to(device)
+        # Train loop
+        for epoch_i in tqdm(range(epochs), desc='Train Epochs'):
+            for batch_i, batch in enumerate(batches):
+                optim.zero_grad()
+                input_ids = batch['input_ids'].to(device)
+                attention_mask = batch['attention_mask'].to(device)
 
-            # Avoiding cuda errors
-            input_ids = input_ids[:,:512]
-            attention_mask = attention_mask[:,:512]
+                # Avoiding cuda errors
+                input_ids = input_ids[:,:512]
+                attention_mask = attention_mask[:,:512]
 
-            start_positions = batch['start_positions'].to(device)
-            end_positions = batch['end_positions'].to(device)
-            outputs = model(input_ids, attention_mask=attention_mask, start_positions=start_positions,
-                            end_positions=end_positions)
-            loss = outputs[0]
-            loss.backward()
-            optim.step()
+                start_positions = batch['start_positions'].to(device)
+                end_positions = batch['end_positions'].to(device)
+                outputs = model(input_ids, attention_mask=attention_mask, start_positions=start_positions,
+                                end_positions=end_positions)
+                loss = outputs[0]
+                save_string = f'{csv_entery_num},{epoch_i},{batch_i},{loss}\n'
+                f.write(save_string)
+                csv_entery_num += 1
+
+                loss.backward()
+                optim.step()
 
     return model
 
