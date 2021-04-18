@@ -14,7 +14,7 @@ import tempfile
 import subprocess
 import re
 import matplotlib.pyplot as plt
-from data.squad.eval1 import evaluate
+# from data.squad.eval1 import evaluate
 import nlpaug.augmenter.word as naw
 import os
 import requests
@@ -319,15 +319,76 @@ def eval_model(model, tokenizer, bpath):
     res_summary = calc_scores(answers_df, bpath)
     return res_summary, answers_df
 
-def plot_random_sample_res(res_csv_paths, exp_name, bpath):
+# =================== Plot Funtions ===================
 
+
+def init_plot():
     plt.figure(figsize=(20,30))
     fig, (ax_f1, ax_em) = plt.subplots(2)
     ax_em.set_xscale("log")
     ax_f1.set_xscale("log")
     fig.suptitle('Experiment Results')
+    return fig, ax_f1, ax_em
+
+def plot_random_shuffle_seed(res_csv_path, exp_name, save_plot=False):
+    fig, ax_f1, ax_em= init_plot()
+
+    df = pd.read_csv(res_csv_path)
+
+    for shuffle_seed in df['shuffle_seed'].unique():
+
+        sub_df = df[df['shuffle_seed']==shuffle_seed]
+
+        x = []
+        y_f1 = []
+        y_em = []
+        yerr_f1_min = []
+        yerr_em_min = []
+        yerr_f1_max = []
+        yerr_em_max = []
+
+        for context_limit in sub_df['n'].unique():
+            df_aug_cont_lim = sub_df[sub_df['n'] == context_limit]
+            x.append(context_limit)
+            y_f1.append(df_aug_cont_lim['F1'].mean())
+            y_em.append(df_aug_cont_lim['EM'].mean())
+
+            yerr_f1_min.append(df_aug_cont_lim['F1'].min())
+            yerr_em_min.append(df_aug_cont_lim['EM'].min())
+            yerr_f1_max.append(df_aug_cont_lim['F1'].max())
+            yerr_em_max.append(df_aug_cont_lim['EM'].max())
+
+        ax_f1.plot(x, y_f1, label=f'shuffle_seed_{shuffle_seed}')
+        ax_f1.fill_between(x, yerr_f1_min, yerr_f1_max, alpha=0.5)
+        ax_em.plot(x, y_em, label=f'shuffle_seed_{shuffle_seed}')
+        ax_em.fill_between(x, yerr_em_min, yerr_em_max, alpha=0.5)
+
+
+        xrange = [2 ** x for x in range(1, 9)]
+        xrange_text = [str(x) for x in xrange]
+
+        ax_f1.set_title('F1 vs. #QA pairs')
+        ax_f1.legend(prop={'size':6}, loc='upper left')
+        ax_f1.set_xticks(xrange)
+        ax_f1.set_xticklabels(xrange_text)
+        ax_em.set_title('EM vs. #QA pairs')
+        ax_em.legend(prop={'size':6}, loc='upper left')
+        ax_em.set_xticks(xrange)
+        ax_em.set_xticklabels(xrange_text)
+        fig.tight_layout()
+
+    # Save Plot
+    if save_plot:
+        fig_save_path = f'results/huji_res/{exp_name}_plot.png'
+        fig.savefig(fig_save_path)
+        print(f'Saved plot figure in {fig_save_path}')
+
+def plot_random_sample_res(res_csv_paths, exp_name, save_plot=False):
+
+    fig, ax_f1, ax_em = init_plot()
 
     for df_i,df_path in enumerate(res_csv_paths):
+        line_name = df_path.split('/')[2]
         df = pd.read_csv(df_path)
         rseed = df['seed'].unique()[0]
         x = []
@@ -349,9 +410,9 @@ def plot_random_sample_res(res_csv_paths, exp_name, bpath):
             yerr_f1_max.append(df_aug_cont_lim['F1'].max())
             yerr_em_max.append(df_aug_cont_lim['EM'].max())
 
-        ax_f1.plot(x, y_f1, label=f'exp_{rseed}')
+        ax_f1.plot(x, y_f1, label=line_name)
         ax_f1.fill_between(x, yerr_f1_min, yerr_f1_max, alpha=0.5)
-        ax_em.plot(x, y_em, label=f'exp_{rseed}')
+        ax_em.plot(x, y_em, label=line_name)
         ax_em.fill_between(x, yerr_em_min, yerr_em_max, alpha=0.5)
 
 
@@ -367,9 +428,39 @@ def plot_random_sample_res(res_csv_paths, exp_name, bpath):
     ax_em.set_xticks(xrange)
     ax_em.set_xticklabels(xrange_text)
     fig.tight_layout()
-    fig_save_path = f'{bpath}/results/{exp_name}/plot.png'
-    fig.savefig(fig_save_path)
-    print(f'Saved plot figure in {fig_save_path}')
+
+    # Save Plot
+    if save_plot:
+        fig_save_path = f'results/huji_res/{exp_name}_plot.png'
+        fig.savefig(fig_save_path)
+        print(f'Saved plot figure in {fig_save_path}')
+
+def plot_loss(loss_csv_path, save_plot=False):
+    plt.figure(figsize=(20, 30))
+
+    df = pd.read_csv(loss_csv_path)
+    plt.plot(df['epoch'].to_list(), df['loss'].to_list())
+    plt.title('Loss @ Epoch - 8 Samples')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.yscale("log")
+    # Save Plot
+    if save_plot:
+        fig_save_path = f'results/huji_res/loss_plot.png'
+        plt.savefig(fig_save_path)
+        print(f'Saved plot figure in {fig_save_path}')
+
 
 if __name__ == '__main__':
-    pass
+    # exp_name = 'baseline'
+    # # exp_names = ['baseline', 'insert-bert-embed', 'insert-word-embed', 'sub-bert-embed', 'sub-word-embed']
+    # exp_names = ['baseline']
+    # res_csv_paths = [f'results/huji_res/{x}/results.csv' for x in exp_names]
+    # plot_random_sample_res(res_csv_paths, exp_name, save_plot=True)
+
+    # exp_name = 'shuffle'
+    # res_csv_path = 'results/huji_res/shuffle_fixed_samples/results.csv'
+    # plot_random_shuffle_seed(res_csv_path, exp_name, save_plot=True)
+
+    loss_csv_path = 'results/huji_res/baseline/loss.csv'
+    plot_loss(loss_csv_path, save_plot=True)
