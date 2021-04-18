@@ -3,7 +3,7 @@
 from transformers import AutoTokenizer, AutoModelForQuestionAnswering
 import torch
 from tqdm import tqdm
-from transformers import AdamW
+from transformers import AdamW, create_optimizer, get_linear_schedule_with_warmup
 from torch.utils.data import DataLoader
 import math
 import pandas as pd
@@ -135,7 +135,33 @@ def add_augs_to_df(df, augs, augs_count):
 
 # =================== Train Functions ===================
 
-def train_model(model, train_ds, train_log_path):
+
+# The optimizer allows us to apply different hyperpameters for specific parameter groups. For example, we can apply weight decay to all parameters other than bias and layer normalization terms:
+
+def get_scheduler(optimizer, warmup_ratio, total_train_steps):
+    # Scheduler
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer, num_warmup_steps=int(warmup_ratio * total_train_steps), num_training_steps=total_train_steps
+    )
+    return scheduler
+
+
+def get_optimizer(model, lr=3e-5, adam_eps=1e-8):
+
+    # Linear Decay Object - Following paper, for fine tuning using base of 3e-5, 10% warmup and linear decay thereafter
+    # Example from https://huggingface.co/transformers/training.html#fine-tuning-in-native-pytorch
+    no_decay = ['bias', 'LayerNorm.weight']
+    optimizer_grouped_parameters = [
+        {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+         'weight_decay': 0.01},
+        {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+    ]
+
+    optimizer = AdamW(optimizer_grouped_parameters, lr=lr, eps=adam_eps)
+    return optimizer
+
+
+def train_model(model, train_ds, train_log_path, lr, adam_eps, warmup_ratio):
 
     print(f'Cuda Visible: {torch.cuda.is_available()}')
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -146,20 +172,32 @@ def train_model(model, train_ds, train_log_path):
     device = "cuda:0"
     model = model.to(device)
 
-    train_loader = DataLoader(train_ds, batch_size=16, shuffle=True)
-    # optimizer
-    optim = AdamW(model.parameters(), lr=5e-5)
-
+    train_loader = DataLoader(train_ds, batch_size=12, shuffle=True)
     # Remove randomness from batches for reproducibility
     torch.manual_seed(0) #TODO
     batches = [x for x in tqdm(train_loader)]
 
+    # training steps - A step is one update meaning one batch
+
+
+
+
+    # epoch
     # matching scheme Few-Shot Question Answering by Pretraining Span Selection
     # https://arxiv.org/pdf/2101.00438.pdf
     # Need to chose max(200 steps, 10 epochs)
     # A step is one update meaning one batch
-    epochs_to_reach_200 = math.ceil(200 * 1.0 / len(batches))
-    epochs = max(10, epochs_to_reach_200)
+    min_train_steps = 200
+    epochs_to_reach_min_steps = math.ceil(min_train_steps * 1.0 / len(batches))
+    epochs = max(10, epochs_to_reach_min_steps)
+    total_train_steps = epochs * len(batches)
+
+    optimizer = get_optimizer(model, lr, adam_eps)
+    scheduler = get_scheduler(optimizer, warmup_ratio, total_train_steps)
+
+
+    # Train Loop
+
     csv_entery_num =0
     csv_columns = ['epoch', 'batch', 'loss']
     with open(train_log_path, "a") as f:
@@ -167,8 +205,9 @@ def train_model(model, train_ds, train_log_path):
 
         # Train loop
         for epoch_i in tqdm(range(epochs), desc='Train Epochs'):
+
             for batch_i, batch in enumerate(batches):
-                optim.zero_grad()
+                optimizer.zero_grad() # same as model.zero_grad() if a single optimizer
                 input_ids = batch['input_ids'].to(device)
                 attention_mask = batch['attention_mask'].to(device)
 
@@ -185,8 +224,11 @@ def train_model(model, train_ds, train_log_path):
                 f.write(save_string)
                 csv_entery_num += 1
 
+                # update_step
                 loss.backward()
-                optim.step()
+                optimizer.step()
+                scheduler.step()
+                model.zero_grad()
 
     return model
 

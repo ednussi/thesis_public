@@ -22,6 +22,12 @@ def parse_args():
                         help='number of aug to add per sample')
     parser.add_argument('--plot_res', required=False, action='store_true', default=False,
                         help='plot and save results')
+    parser.add_argument('--lr', type=float, nargs='?', required=False, default=3e-5,
+                        help='learning rate')
+    parser.add_argument('--adam_eps', type=float, nargs='?', required=False, default=1e-8,
+                        help='Epsilon in AdamW optimizer')
+    parser.add_argument('--warmup_ratio', type=float, nargs='?', required=False, default=0.1,
+                        help='warmup ratio during training')
     parser.add_argument('--name', type=str, required=True, help='Experiment name')
 
     args = parser.parse_args()
@@ -73,7 +79,8 @@ def run_base():
 
                 train_ds = train_df_to_training_dataset(data_samples_df, tokenizer, shuffle_seed=shuffle_seed)
                 train_log_path = f'{base_path}/results/{exp_name}/trainlog_{exp_params}.csv'
-                model = train_model(model, train_ds, train_log_path)
+                model = train_model(model, train_ds, train_log_path,
+                                    args.lr, args.adam_eps, args.warmup_ratio)
 
                 # ============ Eval ============
                 res_summary, answers_df = eval_model(model, tokenizer, base_path)
